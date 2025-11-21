@@ -1,0 +1,14 @@
+# Python venv
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# IDE files
+.vscode/
+.idea/
