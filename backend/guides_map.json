@@ -1,0 +1,52 @@
+{
+  "fema_are_you_ready": {
+    "file_name": "files/y3cy78aqm8a0",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/y3cy78aqm8a0",
+    "mime_type": "application/pdf"
+  },
+  "household_preparedness": {
+    "file_name": "files/klz0r5ptynb1",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/klz0r5ptynb1",
+    "mime_type": "application/pdf"
+  },
+  "flood_preparedness": {
+    "file_name": "files/1vch2slvbfzs",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/1vch2slvbfzs",
+    "mime_type": "application/pdf"
+  },
+  "wildfire_preparedness": {
+    "file_name": "files/sp1zot28vwio",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/sp1zot28vwio",
+    "mime_type": "application/pdf"
+  },
+  "wildfire_toolkit": {
+    "file_name": "files/t9po4uua70dc",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/t9po4uua70dc",
+    "mime_type": "application/pdf"
+  },
+  "earthquake_tsunami_guide": {
+    "file_name": "files/fw4rfuidzqeh",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/fw4rfuidzqeh",
+    "mime_type": "application/pdf"
+  },
+  "winter_storm_guide": {
+    "file_name": "files/q3bo1so6eycf",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/q3bo1so6eycf",
+    "mime_type": "application/pdf"
+  },
+  "canada_power_outage": {
+    "file_name": "files/g0f01o11hijr",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/g0f01o11hijr",
+    "mime_type": "application/pdf"
+  },
+  "bc_power_outage": {
+    "file_name": "files/yp54tstfobjv",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/yp54tstfobjv",
+    "mime_type": "application/pdf"
+  },
+  "ont_power_outage": {
+    "file_name": "files/yrgahwclr8kv",
+    "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/yrgahwclr8kv",
+    "mime_type": "application/pdf"
+  }
+}

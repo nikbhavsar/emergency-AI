@@ -1,0 +1,196 @@
+[
+  {
+    "id": "home_safety",
+    "label": "Home Safety",
+    "subcategories": [
+      {
+        "id": "home_fire",
+        "label": "Fire in home or building",
+        "summary": "Small fire or smoke in your home or building.",
+        "defaultGuideKeys": ["fema_are_you_ready", "household_preparedness"],
+        "triageQuestions": [
+          {
+            "question": "Is the fire spreading or getting out of control?",
+            "redFlagIfYes": true
+          },
+          {
+            "question": "Is thick smoke filling the room?",
+            "redFlagIfYes": true
+          }
+        ]
+      },
+      {
+        "id": "home_power_outage",
+        "label": "Power outage at home",
+        "summary": "Lights and power are out in your home.",
+        "defaultGuideKeys": ["canada_power_outage", "bc_power_outage", "ont_power_outage"],
+        "triageQuestions": [
+          {
+            "question": "Does anyone rely on powered medical devices that have stopped?",
+            "redFlagIfYes": true
+          },
+          {
+            "question": "Is it extremely hot or cold where you are?",
+            "redFlagIfYes": false
+          }
+        ]
+      },
+      {
+        "id": "home_gas_smell",
+        "label": "Smell of gas in home",
+        "summary": "You smell gas and are worried about a leak.",
+        "defaultGuideKeys": ["fema_are_you_ready", "household_preparedness"],
+        "triageQuestions": [
+          {
+            "question": "Is the gas smell strong inside your home?",
+            "redFlagIfYes": true
+          },
+          {
+            "question": "Do you see any sparks or flames nearby?",
+            "redFlagIfYes": true
+          }
+        ]
+      },
+      {
+        "id": "home_water_leak",
+        "label": "Burst pipe or water leak",
+        "summary": "Water leaking or flooding inside your home.",
+        "defaultGuideKeys": ["flood_preparedness", "household_preparedness"],
+        "triageQuestions": []
+      }
+    ]
+  },
+  {
+    "id": "weather_disasters",
+    "label": "Weather & Natural Hazards",
+    "subcategories": [
+      {
+        "id": "hazard_flood",
+        "label": "Flooding or flood warning",
+        "summary": "There is a risk of flooding or water is rising.",
+        "defaultGuideKeys": ["flood_preparedness", "fema_are_you_ready"],
+        "triageQuestions": [
+          {
+            "question": "Is water rising quickly where you are?",
+            "redFlagIfYes": true
+          }
+        ]
+      },
+      {
+        "id": "hazard_wildfire",
+        "label": "Wildfire or heavy smoke nearby",
+        "summary": "You see smoke or fire or have a warning about wildfire.",
+        "defaultGuideKeys": ["wildfire_preparedness", "wildfire_toolkit"],
+        "triageQuestions": [
+          {
+            "question": "Have authorities told you to evacuate?",
+            "redFlagIfYes": true
+          }
+        ]
+      },
+      {
+        "id": "hazard_earthquake",
+        "label": "Earthquake or aftershocks",
+        "summary": "You have just felt an earthquake or aftershocks.",
+        "defaultGuideKeys": ["earthquake_tsunami_guide", "household_preparedness"],
+        "triageQuestions": [
+          {
+            "question": "Do you see major damage to buildings or power lines?",
+            "redFlagIfYes": true
+          }
+        ]
+      },
+      {
+        "id": "hazard_severe_storm",
+        "label": "Severe storm, high winds or blizzard",
+        "summary": "Dangerous weather like severe storms, heavy snow or ice.",
+        "defaultGuideKeys": ["winter_storm_guide", "fema_are_you_ready"],
+        "triageQuestions": []
+      }
+    ]
+  },
+  {
+    "id": "travel_vehicle",
+    "label": "Travel & Vehicle",
+    "subcategories": [
+      {
+        "id": "vehicle_breakdown",
+        "label": "Car broken down",
+        "summary": "Your car stops working while driving.",
+        "defaultGuideKeys": ["fema_are_you_ready"],
+        "triageQuestions": [
+          {
+            "question": "Are you stopped in fast traffic or on a busy highway?",
+            "redFlagIfYes": true
+          }
+        ]
+      },
+      {
+        "id": "vehicle_flat_tire",
+        "label": "Flat tire",
+        "summary": "You have a flat tire and need to deal with it safely.",
+        "defaultGuideKeys": ["fema_are_you_ready"],
+        "triageQuestions": []
+      },
+      {
+        "id": "vehicle_stuck_snow",
+        "label": "Car stuck in snow",
+        "summary": "Your vehicle is stuck in snow or ice.",
+        "defaultGuideKeys": ["winter_storm_guide"],
+        "triageQuestions": []
+      }
+    ]
+  },
+  {
+    "id": "neighbourhood_safety",
+    "label": "Neighbourhood Safety",
+    "subcategories": [
+      {
+        "id": "suspicious_activity",
+        "label": "Suspicious activity",
+        "summary": "You see behaviour that worries you.",
+        "defaultGuideKeys": ["household_preparedness"],
+        "triageQuestions": [
+          {
+            "question": "Do you feel in immediate danger right now?",
+            "redFlagIfYes": true
+          }
+        ]
+      },
+      {
+        "id": "break_in_discovered",
+        "label": "Break-in discovered",
+        "summary": "You come home or to your car and see signs of a break-in.",
+        "defaultGuideKeys": ["household_preparedness"],
+        "triageQuestions": []
+      },
+      {
+        "id": "noise_complaint",
+        "label": "Noise complaint",
+        "summary": "Loud party or noise in your neighbourhood.",
+        "defaultGuideKeys": ["household_preparedness"],
+        "triageQuestions": []
+      }
+    ]
+  },
+  {
+    "id": "everyday_problems",
+    "label": "Everyday Problems",
+    "subcategories": [
+      {
+        "id": "lost_phone",
+        "label": "Lost or stolen phone",
+        "summary": "You think your phone is lost or stolen.",
+        "defaultGuideKeys": ["household_preparedness"],
+        "triageQuestions": []
+      },
+      {
+        "id": "lost_wallet",
+        "label": "Lost wallet or cards",
+        "summary": "You lost your wallet or bank cards.",
+        "defaultGuideKeys": ["household_preparedness"],
+        "triageQuestions": []
+      }
+    ]
+  }
+]
