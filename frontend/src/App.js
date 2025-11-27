@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { trackEvent, trackPageView } from './ga4';
 import { marked } from 'marked';
 
-const API_BASE = 'http://127.0.0.1:5000';
+const API_BASE = (
+	process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000'
+).replace(/\/$/, '');
 
 function App() {
 	const [situationText, setSituationText] = useState('');
@@ -28,6 +30,9 @@ function App() {
 
 		setLoading(true);
 		const endpoint = mode === 'deep' ? '/api/help/deep' : '/api/help';
+		const url = `${API_BASE}${endpoint}`;
+
+		console.log('Calling API:', url, { mode });
 
 		trackEvent({
 			action: 'submit_help_request',
@@ -36,7 +41,7 @@ function App() {
 		});
 
 		try {
-			const res = await fetch(`${API_BASE}${endpoint}`, {
+			const res = await fetch(url, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ situationText: trimmed }),
@@ -55,7 +60,7 @@ function App() {
 				label: data.hazard || 'unknown',
 			});
 		} catch (err) {
-			console.error(err);
+			console.error('Request failed:', err);
 			setError('Something went wrong. Please try again.');
 
 			trackEvent({
@@ -176,9 +181,9 @@ function App() {
 						<div
 							className='guidance-box'
 							dangerouslySetInnerHTML={{
-								__html: marked.parse(result.guidance),
+								__html: marked.parse(result.guidance || ''),
 							}}
-						></div>{' '}
+						></div>
 					</section>
 				)}
 

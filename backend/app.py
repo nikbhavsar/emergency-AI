@@ -8,11 +8,16 @@ from flask_cors import CORS
 from gemini_client import (
     classify_hazard_with_gemini,
     generate_guidance_with_gemini,
-    deep_guidance_with_pdf, 
+    deep_guidance_with_pdf,
 )
 
 app = Flask(__name__)
-CORS(app)
+
+CORS(
+    app,
+    resources={r"/api/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "*"]}},
+    supports_credentials=False,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -36,6 +41,7 @@ MEDICAL_KEYWORDS = [
     "spurting blood",
     "passed out",
 ]
+
 
 def is_possible_medical_emergency(user_text: str) -> bool:
     """
@@ -226,21 +232,19 @@ def get_situations() -> Any:
     return jsonify(SITUATIONS)
 
 
-@app.post("/api/help")
+@app.route("/api/help", methods=["POST", "OPTIONS"])
 def get_help() -> Any:
     """
+    Normal mode:
     Request body:
     {
       "situationText": "My basement is flooding and water is rising quickly."
     }
-
-    Logic:
-    1. Check for obvious medical emergency - immediate 'call 911' response (no AI).
-    2. Run rule-based hazard detection.
-    3. If rules are unsure, ask Gemini to classify hazard.
-    4. Map hazard to guide keys.
-    5. Ask Gemini to generate simple numbered steps.
     """
+
+    if request.method == "OPTIONS":
+        return ("", 200)
+
     body = request.get_json() or {}
     situation_text = (body.get("situationText") or "").strip()
 
@@ -258,6 +262,7 @@ def get_help() -> Any:
                 "This app cannot give medical advice. Please call emergency services "
                 "(911 or your local emergency number) immediately or seek urgent medical help."
             ),
+            "mode": "normal",
         })
 
     hazard_label = detect_hazard_by_rules(situation_text)
@@ -276,28 +281,100 @@ def get_help() -> Any:
 
     return jsonify({
         "hazard": hazard_label,
-        "hazardSource": hazard_source,        
-        "guidesUsed": guides_used_keys,       
+        "hazardSource": hazard_source,
+        "guidesUsed": guides_used_keys,
         "canDeepDive": bool(guides_used_keys),
         "guidance": guidance_text,
+        "mode": "normal",
+    })
+
+
+@app.route("/api/help/deep", methods=["POST", "OPTIONS"])
+def get_help_deep() -> Any:
+    """
+    Deep mode used by React:
+    Request body:
+    {
+      "situationText": "My basement is flooding and water is rising quickly."
+    }
+
+    Logic:
+    - Same as /api/help, but:
+      * Always lets Gemini classify if needed
+      * Uses deep_guidance_with_pdf when there's at least one matching guide
+    """
+
+    if request.method == "OPTIONS":
+        return ("", 200)
+
+    body = request.get_json() or {}
+    situation_text = (body.get("situationText") or "").strip()
+
+    if not situation_text:
+        return jsonify({"error": "situationText is required"}), 400
+
+    if is_possible_medical_emergency(situation_text):
+        return jsonify({
+            "hazard": "medical_emergency",
+            "hazardSource": "rules",
+            "guidesUsed": [],
+            "canDeepDive": False,
+            "guidance": (
+                "It sounds like there might be a medical emergency. "
+                "This app cannot give medical advice. Please call emergency services "
+                "(911 or your local emergency number) immediately or seek urgent medical help."
+            ),
+            "mode": "deep",
+        })
+
+    # Rule-based first
+    hazard_label = detect_hazard_by_rules(situation_text)
+    hazard_source = "rules"
+
+    # If unknown or we want more accuracy, ask Gemini
+    if hazard_label == "unknown":
+        hazard_label = classify_hazard_with_gemini(situation_text)
+        hazard_source = "ai"
+
+    guides_used_keys = choose_guides_for_hazard(hazard_label)
+
+    # If we have at least one matching guide, use deep guidance with PDF
+    if guides_used_keys:
+        primary_guide_key = guides_used_keys[0]
+        deep_answer = deep_guidance_with_pdf(
+            user_text=situation_text,
+            hazard_label=hazard_label,
+            guide_key=primary_guide_key,
+        )
+        guidance_text = deep_answer
+    else:
+        # Fallback to regular guidance if no guide is available
+        guidance_text = generate_guidance_with_gemini(
+            user_text=situation_text,
+            hazard_label=hazard_label,
+        )
+
+    return jsonify({
+        "hazard": hazard_label,
+        "hazardSource": hazard_source,
+        "guidesUsed": guides_used_keys,
+        "canDeepDive": bool(guides_used_keys),
+        "guidance": guidance_text,
+        "mode": "deep",
     })
 
 
 @app.post("/api/deep-guidance")
 def deep_guidance() -> Any:
     """
+    (Optional) Original deep endpoint if you still want to use it somewhere else.
+
     Request body:
     {
       "situationText": "My basement is flooding and water is rising quickly.",
       "hazard": "flood",
       "guideKey": "flood_preparedness"
     }
-
-    Logic:
-    - Uses deep_guidance_with_pdf(...) which:
-        * looks up the Files API ID for guideKey
-        * attaches that PDF in the Gemini request
-        * returns a deeper answer based ONLY on that guide
     """
     body = request.get_json() or {}
     situation_text = (body.get("situationText") or "").strip()
