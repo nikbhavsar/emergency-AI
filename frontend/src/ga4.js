@@ -1,6 +1,6 @@
 // GA4 helper utilities
 
-export const GA_MEASUREMENT_ID = "G-XXXXXXXXXX"; 
+export const GA_MEASUREMENT_ID = "G-PP4B14KV0S"; 
 
 export const trackEvent = ({ action, category, label, value }) => {
   if (typeof window === "undefined") return;
