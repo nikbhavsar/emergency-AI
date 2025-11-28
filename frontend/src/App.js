@@ -127,7 +127,7 @@ function App() {
 									}
 									disabled={loading}
 								/>
-								<span>Deep guidance (longer, more detailed answer)</span>
+								<span>Deep guidance</span>
 							</label>
 							<p className='deep-toggle-hint'>
 								Normal mode is fast and enough for most situations. Deep mode
@@ -172,7 +172,7 @@ function App() {
 							<span className='pill'>
 								Mode: <strong>{resultMode}</strong>
 							</span>
-							{result.guidesUsed?.length > 0 && (
+							{result.guidesUsed?.length > 0 && mode === 'deep' && (
 								<span className='pill pill-soft'>
 									Guides: {result.guidesUsed.join(', ')}
 								</span>
@@ -187,7 +187,6 @@ function App() {
 					</section>
 				)}
 
-				{/* EXAMPLES CARD */}
 				{!result && (
 					<section className='card card-secondary'>
 						<h3 className='card-title'>Try one of these examples</h3>

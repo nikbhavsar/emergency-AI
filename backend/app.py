@@ -367,8 +367,6 @@ def get_help_deep() -> Any:
 @app.post("/api/deep-guidance")
 def deep_guidance() -> Any:
     """
-    (Optional) Original deep endpoint if you still want to use it somewhere else.
-
     Request body:
     {
       "situationText": "My basement is flooding and water is rising quickly.",
