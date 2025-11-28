@@ -242,12 +242,19 @@ def deep_guidance_with_pdf(
 def fallback_guidance(user_text: str, hazard_label: str) -> str:
     readable = hazard_label.replace("_", " ")
     return (
-        f"General non-medical safety steps ({readable}):\n\n"
-        "1. Ensure your immediate safety. If this feels life-threatening, call emergency services.\n"
-        "2. Avoid obvious hazards (fire, water, electrical, gas, unstable structures, unsafe roads).\n"
-        "3. Move to a safer location if possible.\n"
-        "4. Follow official alerts or local authority instructions.\n"
-        "5. Inform a trusted neighbour or family member.\n"
-        "6. Keep your phone charged and monitor conditions.\n\n"
-        f"Your description:\n\"{user_text}\"\n"
+        "We couldn’t find a closely matching situation or specific guide for this, "
+        "so here are general, non-medical safety steps you can consider "
+        f"(interpreting this as '{readable_hazard}'):\n\n"
+        "1. Make sure you and anyone with you are safe. If you ever feel in danger or this "
+        "seems life-threatening, call emergency services (911 or your local number) immediately.\n"
+        "2. Look around and identify any obvious hazards related to the situation. Stay away "
+        "from fire, rising water, damaged electrical lines, unstable structures, or unsafe roads.\n"
+        "3. If it is safe to move, go to a safer location (for example, higher ground in a flood, "
+        "outside away from smoke in a fire, or away from windows during a storm).\n"
+        "4. If local authorities or official sources (emergency alerts, government websites, "
+        "trusted news) are giving guidance, follow that advice first.\n"
+        "5. Let a trusted friend, neighbour, or family member know what is happening if you can.\n"
+        "6. Keep your phone charged if possible and be ready to call emergency services if "
+        "the situation gets worse.\n\n"
+        f"Your description was:\n\"{user_text}\"\n"
     )

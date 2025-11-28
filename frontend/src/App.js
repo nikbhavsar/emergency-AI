@@ -127,13 +127,15 @@ function App() {
 									}
 									disabled={loading}
 								/>
-								<span>Deep guidance</span>
+								<span>Deep guidance (Google Gemini Files)</span>
 							</label>
 							<p className='deep-toggle-hint'>
 								Normal mode is fast and enough for most situations. Deep mode
-								uses enhanced AI processing and can reference uploaded
-								emergency-preparedness documents (via the Gemini Files API) to
-								generate more context-aware guidance.
+								uses Google&apos;s Gemini Files API to look up relevant
+								emergency-preparedness PDFs (for example, flood, wildfire, or
+								earthquake guides) when available, and then gives a more
+								detailed answer based on those documents. If nothing closely
+								matches, it falls back to general safety advice.
 							</p>
 						</div>
 
