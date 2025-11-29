@@ -226,8 +226,8 @@ def health() -> Any:
 @app.get("/api/situations")
 def get_situations() -> Any:
     """
-    Exposes your structured list of situations and triage questions.
-    Useful if your React app wants to show categories.
+    Exposes the structured list of situations and triage questions.
+    Useful to show categories.
     """
     return jsonify(SITUATIONS)
 
@@ -292,7 +292,6 @@ def get_help() -> Any:
 @app.route("/api/help/deep", methods=["POST", "OPTIONS"])
 def get_help_deep() -> Any:
     """
-    Deep mode used by React:
     Request body:
     {
       "situationText": "My basement is flooding and water is rising quickly."
