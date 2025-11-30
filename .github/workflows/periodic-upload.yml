@@ -2,13 +2,22 @@ name: Upload Guides (Every 48 Hours)
 
 on:
   schedule:
-    # Every 48 hours
+    # Every 48 hours (every 2nd day at 00:00 UTC)
     - cron: "0 0 */2 * *"
   workflow_dispatch: {}   
 
 jobs:
   run-upload-guides:
     runs-on: ubuntu-latest
+
+    # Environment variables for the whole job
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      S3_GUIDES_BUCKET: ${{ secrets.S3_GUIDES_BUCKET }}
+      S3_GUIDES_KEY: ${{ secrets.S3_GUIDES_KEY }}
 
     defaults:
       run:
@@ -29,7 +38,5 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run upload_guides.py
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python upload_guides.py
