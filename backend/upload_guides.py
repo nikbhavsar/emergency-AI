@@ -1,14 +1,12 @@
-# upload_guides.py (updated)
-
 import json
 import os
 from pathlib import Path
 
+import boto3
 from google import genai
 
 BASE_DIR = Path(__file__).parent
 GUIDES_DIR = BASE_DIR / "guides"
-GUIDES_MAP_PATH = BASE_DIR / "guides_map.json"
 
 GUIDE_CONFIG = {
     "fema_are_you_ready": {
@@ -53,23 +51,34 @@ GUIDE_CONFIG = {
     },
 }
 
+
 def main() -> None:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY environment variable is not set")
+        raise RuntimeError("GEMINI_API_KEY is not set")
 
+    bucket = os.environ.get("S3_GUIDES_BUCKET")
+    key = os.environ.get("S3_GUIDES_KEY", "guides/guides_map.json")
+    region = os.environ.get("AWS_REGION", "us-west-2")
+
+    if not bucket:
+        raise RuntimeError("S3_GUIDES_BUCKET is not set")
+
+    # Gemini & S3 clients
     client = genai.Client(api_key=api_key)
+    s3 = boto3.client("s3", region_name=region)
 
     guides_map: dict[str, dict[str, str]] = {}
 
+    # Upload each PDF to Gemini Files API
     for guide_key, info in GUIDE_CONFIG.items():
         path = GUIDES_DIR / info["filename"]
 
         if not path.exists():
-            print(f"Skipping {guide_key}: file not found at {path}")
+            print(f"[WARN] Missing file: {path}")
             continue
 
-        print(f"Uploading {guide_key} from {path} ...")
+        print(f"[INFO] Uploading {guide_key} → Gemini...")
 
         uploaded = client.files.upload(
             file=path,
@@ -80,13 +89,28 @@ def main() -> None:
         )
 
         guides_map[guide_key] = {
-            "file_name": uploaded.name,       
-            "file_uri": uploaded.uri,         
-            "mime_type": uploaded.mime_type, 
+            "display_name": info["display_name"],
+            "original_filename": info["filename"],
+            "file_name": uploaded.name,
+            "file_uri": uploaded.uri,
+            "mime_type": uploaded.mime_type,
         }
 
-    GUIDES_MAP_PATH.write_text(json.dumps(guides_map, indent=2))
-    print(f"Wrote {GUIDES_MAP_PATH} with {len(guides_map)} guides.")
+        print(f"[OK] {guide_key} uploaded as {uploaded.name}")
+
+    # Convert to JSON for S3
+    json_body = json.dumps(guides_map, indent=2)
+
+    print(f"[INFO] Uploading guides_map.json to s3://{bucket}/{key}")
+
+    s3.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=json_body.encode("utf-8"),
+        ContentType="application/json",
+    )
+
+    print(f"[DONE] Uploaded guides_map.json with {len(guides_map)} guides.")
 
 
 if __name__ == "__main__":

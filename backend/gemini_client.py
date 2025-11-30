@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Optional
 
+import boto3
 from google import genai
 from google.genai import types
 
@@ -10,9 +11,17 @@ from google.genai import types
 # CONFIG
 
 BASE_DIR = Path(__file__).parent
-GUIDES_MAP_PATH = BASE_DIR / "guides_map.json"
+GUIDES_MAP_PATH = BASE_DIR / "guides_map.json" 
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
+AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
+S3_GUIDES_BUCKET = os.environ.get("S3_GUIDES_BUCKET")
+S3_GUIDES_KEY = os.environ.get("S3_GUIDES_KEY", "guides/guides_map.json")
+
+# S3 client & in-memory cache for guides_map
+_s3_client = boto3.client("s3", region_name=AWS_REGION) if S3_GUIDES_BUCKET else None
+_guides_cache: Optional[Dict[str, Dict[str, str]]] = None
 
 ALLOWED_HAZARDS = [
     "fire",
@@ -57,17 +66,40 @@ def get_client() -> Optional[genai.Client]:
         return None
     return genai.Client(api_key=GEMINI_API_KEY)
 
+
 # GUIDE MAP HELPERS
 
-def load_guides_map() -> Dict[str, Dict[str, str]]:
-    if not GUIDES_MAP_PATH.exists():
-        print("[gemini] guides_map.json not found")
-        return {}
-    try:
-        return json.loads(GUIDES_MAP_PATH.read_text())
-    except Exception as e:
-        print("[gemini] Error reading guides_map.json:", repr(e))
-        return {}
+def load_guides_map(force_refresh: bool = False) -> Dict[str, Dict[str, str]]:
+    """
+    Load guides_map.json, preferring S3 if configured.
+    Uses an in-memory cache unless force_refresh=True.
+    """
+    global _guides_cache
+
+    if _guides_cache is not None and not force_refresh:
+        return _guides_cache
+
+    if _s3_client and S3_GUIDES_BUCKET:
+        try:
+            print(f"[gemini] Loading guides_map.json from S3: s3://{S3_GUIDES_BUCKET}/{S3_GUIDES_KEY}")
+            resp = _s3_client.get_object(Bucket=S3_GUIDES_BUCKET, Key=S3_GUIDES_KEY)
+            data = resp["Body"].read()
+            _guides_cache = json.loads(data.decode("utf-8"))
+            return _guides_cache
+        except Exception as e:
+            print("[gemini] Error loading guides_map.json from S3:", repr(e))
+
+    if GUIDES_MAP_PATH.exists():
+        try:
+            print(f"[gemini] Loading guides_map.json from local file: {GUIDES_MAP_PATH}")
+            _guides_cache = json.loads(GUIDES_MAP_PATH.read_text())
+            return _guides_cache
+        except Exception as e:
+            print("[gemini] Error reading local guides_map.json:", repr(e))
+
+    print("[gemini] No guides_map.json found in S3 or local file")
+    _guides_cache = {}
+    return _guides_cache
 
 
 def get_guides_for_hazard(hazard_label: str) -> List[str]:
@@ -83,14 +115,14 @@ def get_guides_for_hazard(hazard_label: str) -> List[str]:
         if key in guides_map:
             valid.append(key)
         else:
-            print(f"[gemini] guide key '{key}' not found in guides_map.json")
+            print(f"[gemini] guide key '{key}' not found in guides_map")
     return valid
 
 
 def get_guide_file_uri(guide_key: str) -> Optional[tuple[str, str]]:
     """
     Returns (file_uri, mime_type) for a given guide_key
-    using the new guides_map.json structure.
+    using the guides_map structure loaded from S3 (or local fallback).
     """
     guides_map = load_guides_map()
     entry = guides_map.get(guide_key)
@@ -98,7 +130,7 @@ def get_guide_file_uri(guide_key: str) -> Optional[tuple[str, str]]:
         print(f"[gemini] No guides_map entry for '{guide_key}'")
         return None
 
-    file_uri = entry.get("file_uri")  
+    file_uri = entry.get("file_uri")
     mime_type = entry.get("mime_type", "application/pdf")
 
     if not file_uri:
@@ -106,6 +138,7 @@ def get_guide_file_uri(guide_key: str) -> Optional[tuple[str, str]]:
         return None
 
     return file_uri, mime_type
+
 
 def classify_hazard_with_gemini(user_text: str) -> str:
     client = get_client()
@@ -143,6 +176,7 @@ def classify_hazard_with_gemini(user_text: str) -> str:
         "general": "general_safety",
     }
     return aliases.get(raw, "general_safety")
+
 
 def generate_guidance_with_gemini(
     user_text: str,
@@ -182,7 +216,7 @@ def generate_guidance_with_gemini(
     except Exception as e:
         print("[gemini] Error in generate_guidance_with_gemini:", repr(e))
         return fallback_guidance(user_text, hazard_label)
-    
+
 
 def deep_guidance_with_pdf(
     user_text: str,
@@ -244,7 +278,7 @@ def fallback_guidance(user_text: str, hazard_label: str) -> str:
     return (
         "We couldn’t find a closely matching situation or specific guide for this, "
         "so here are general, non-medical safety steps you can consider "
-        f"(interpreting this as '{readable_hazard}'):\n\n"
+        f"(interpreting this as '{readable}'):\n\n"
         "1. Make sure you and anyone with you are safe. If you ever feel in danger or this "
         "seems life-threatening, call emergency services (911 or your local number) immediately.\n"
         "2. Look around and identify any obvious hazards related to the situation. Stay away "

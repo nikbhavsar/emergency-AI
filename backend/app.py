@@ -9,6 +9,7 @@ from gemini_client import (
     classify_hazard_with_gemini,
     generate_guidance_with_gemini,
     deep_guidance_with_pdf,
+    get_guides_for_hazard as gemini_get_guides_for_hazard,
 )
 
 app = Flask(__name__)
@@ -23,9 +24,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 with open(os.path.join(BASE_DIR, "situations_seed.json"), "r") as f:
     SITUATIONS: List[Dict[str, Any]] = json.load(f)
-
-with open(os.path.join(BASE_DIR, "guides_map.json"), "r") as f:
-    GUIDES_MAP: Dict[str, Dict[str, str]] = json.load(f)
 
 MEDICAL_KEYWORDS = [
     "unconscious",
@@ -174,46 +172,16 @@ def detect_hazard_by_rules(user_text: str) -> str:
     return "unknown"
 
 
-HAZARD_TO_GUIDES = {
-    # Home safety
-    "fire": ["fema_are_you_ready", "household_preparedness"],
-    "power_outage": ["canada_power_outage", "bc_power_outage", "ont_power_outage"],
-    "gas_leak": ["fema_are_you_ready", "household_preparedness"],
-    "water_leak": ["flood_preparedness", "household_preparedness"],
-
-    # Weather & natural hazards
-    "flood": ["flood_preparedness", "fema_are_you_ready"],
-    "wildfire": ["wildfire_preparedness", "wildfire_toolkit"],
-    "earthquake": ["earthquake_tsunami_guide", "household_preparedness"],
-    "storm": ["winter_storm_guide", "fema_are_you_ready"],
-    "snow_stuck": ["winter_storm_guide"],
-
-    # Neighbourhood safety
-    "suspicious_activity": ["household_preparedness"],
-    "break_in": ["household_preparedness"],
-    "noise_issue": ["household_preparedness"],
-
-    # Everyday problems
-    "lost_phone": ["household_preparedness"],
-    "lost_wallet": ["household_preparedness"],
-
-    # Fallback
-    "general_safety": ["fema_are_you_ready", "household_preparedness"],
-}
-
-
 def choose_guides_for_hazard(hazard_label: str) -> List[str]:
     """
     Convert a hazard label into a list of guide *keys*.
 
-    We only return the logical keys like "flood_preparedness" so the frontend
-    can show them and the deep helper can use them.
+    Delegates to gemini_client.get_guides_for_hazard, which:
+    - Uses HAZARD_GUIDE_MAP
+    - Loads guides_map.json from S3 (or local fallback)
+    - Filters to only keys that actually exist in the map
     """
-    guide_keys = HAZARD_TO_GUIDES.get(hazard_label, ["fema_are_you_ready"])
-
-    # Only keep keys that actually exist in GUIDES_MAP
-    valid_keys: List[str] = [key for key in guide_keys if key in GUIDES_MAP]
-    return valid_keys
+    return gemini_get_guides_for_hazard(hazard_label)
 
 
 # -------- ROUTES --------
