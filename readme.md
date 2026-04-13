@@ -7,7 +7,8 @@ It uses a **hybrid approach**:
 * **Rule-based hazard detection** → instant & deterministic
 * **Gemini AI classification** → when rules are unsure
 * **Optional PDF “Book Guidance”** via Gemini Files API
-* **Fallback guidance** when no PDF or match is available
+* **OpenRouter fallback** — secondary AI when Gemini is unavailable
+* **Static fallback guidance** when all AI providers fail
 
 Built as a full-stack + AI portfolio project by **Nikhar Bhavsar**.
 
@@ -60,7 +61,8 @@ https://emergency-ai-backend.onrender.com
 5. Hazard maps to official guides.
 6. Normal mode → short, calm steps.
 7. “Book Guidance” (PDF Mode) → Gemini reads emergency PDFs using Files API for more detailed advice.
-8. If no match is found → graceful fallback with general guidance.
+8. If Gemini fails → **OpenRouter** provides AI-generated guidance as a fallback.
+9. If all AI fails → graceful static fallback with general guidance.
 
 ---
 
@@ -121,6 +123,7 @@ RAG gives:
 backend/
   app.py
   gemini_client.py
+  openrouter_client.py
   guides_map.json
   situations_seed.json
   upload_guides.py
@@ -231,18 +234,44 @@ Notes:
 
 ---
 
-## Running Locally
+## Environment Variables
 
-### Backend
+All env vars are loaded from `backend/.env` automatically (via `python-dotenv`). Copy the example file to get started:
 
 ```bash
+cp backend/.env.example backend/.env
+```
+
+Then fill in your keys in `backend/.env`:
+
+| Variable | Required | Default | Where to get |
+|----------|----------|---------|-------------|
+| `GEMINI_API_KEY` | Yes | — | [Google AI Studio](https://aistudio.google.com/apikey) |
+| `OPENROUTER_API_KEY` | Recommended | — | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| `OPENROUTER_MODEL` | No | `openai/gpt-4o-mini` | [openrouter.ai/models](https://openrouter.ai/models) |
+| `GEMINI_MODEL` | No | `gemini-2.0-flash` | — |
+| `AWS_REGION` | No | `us-west-2` | — |
+| `S3_GUIDES_BUCKET` | No | — | Your S3 bucket name |
+| `S3_GUIDES_KEY` | No | `guides/guides_map.json` | — |
+
+**`backend/.env` is gitignored** — your keys never leave your machine.
+
+### Development
+
+```bash
+# 1. Copy and edit env file
 cd backend
+cp .env.example .env
+# Edit .env with your real keys
+
+# 2. Setup and run
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-export GEMINI_API_KEY="your-key"
 python app.py
 ```
+
+The app runs on `http://127.0.0.1:5000`.
 
 ### Frontend
 
@@ -252,6 +281,17 @@ npm install
 npm start
 ```
 
+### Production (Render)
+
+Set env vars in **Render Dashboard → Environment**:
+
+1. Go to your backend service on [dashboard.render.com](https://dashboard.render.com)
+2. Click **Environment** in the left sidebar
+3. Add each variable (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, etc.)
+4. Click **Save Changes** — Render redeploys automatically
+
+Do NOT put real keys in `.env` files committed to the repo.
+
 ---
 
 ## Support
@@ -260,6 +300,20 @@ Ko-fi link:
 [https://ko-fi.com/nikbhavsar](https://ko-fi.com/nikbhavsar)
 
 > Completely optional — your support helps reduce 503 errors, speed up slow-thinking AI, and increase happiness by at least 14%.
+
+---
+
+## Fallback Architecture
+
+The app uses a **3-tier fallback chain** to maximize availability:
+
+| Priority | Provider | Use Case |
+|----------|----------|----------|
+| 1st | **Gemini** (Google) | Primary AI — classification, guidance, and PDF-based deep guidance |
+| 2nd | **OpenRouter** | Secondary AI — kicks in when Gemini is down or key is missing |
+| 3rd | **Static fallback** | Hard-coded generic safety steps — last resort when all AI fails |
+
+If `OPENROUTER_API_KEY` is not set, the OpenRouter tier is skipped and the app falls through to the static fallback directly.
 
 ---
 

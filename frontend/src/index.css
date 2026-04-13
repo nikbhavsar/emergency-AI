@@ -69,6 +69,13 @@ body {
   font-size: 0.98rem;
 }
 
+.app-header__notice {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #a0a0a0;
+  font-style: italic;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

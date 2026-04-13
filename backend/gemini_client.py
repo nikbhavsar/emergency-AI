@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -7,39 +8,31 @@ import boto3
 from google import genai
 from google.genai import types
 
+from openrouter_client import (
+    ALLOWED_HAZARDS,
+    HAZARD_ALIASES,
+    classify_hazard_with_openrouter,
+    generate_guidance_with_openrouter,
+    deep_guidance_with_openrouter,
+)
 
-# CONFIG
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent
-GUIDES_MAP_PATH = BASE_DIR / "guides_map.json" 
+GUIDES_MAP_PATH = BASE_DIR / "guides_map.json"
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+MAX_INPUT_LENGTH = 2000
 
 AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
 S3_GUIDES_BUCKET = os.environ.get("S3_GUIDES_BUCKET")
 S3_GUIDES_KEY = os.environ.get("S3_GUIDES_KEY", "guides/guides_map.json")
 
-# S3 client & in-memory cache for guides_map
 _s3_client = boto3.client("s3", region_name=AWS_REGION) if S3_GUIDES_BUCKET else None
 _guides_cache: Optional[Dict[str, Dict[str, str]]] = None
-
-ALLOWED_HAZARDS = [
-    "fire",
-    "power_outage",
-    "gas_leak",
-    "water_leak",
-    "flood",
-    "earthquake",
-    "wildfire",
-    "storm",
-    "snow_stuck",
-    "suspicious_activity",
-    "break_in",
-    "noise_issue",
-    "lost_phone",
-    "lost_wallet",
-    "general_safety",
-]
+_gemini_client: Optional[genai.Client] = None
+_last_provider: str = "none"
 
 HAZARD_GUIDE_MAP: Dict[str, List[str]] = {
     "fire": ["fema_are_you_ready", "household_preparedness", "wildfire_toolkit"],
@@ -60,20 +53,28 @@ HAZARD_GUIDE_MAP: Dict[str, List[str]] = {
 }
 
 
-def get_client() -> Optional[genai.Client]:
+def get_last_provider() -> str:
+    return _last_provider
+
+
+def _truncate(text: str, max_len: int = MAX_INPUT_LENGTH) -> str:
+    if len(text) <= max_len:
+        return text
+    return text[:max_len]
+
+
+def _get_client() -> Optional[genai.Client]:
+    global _gemini_client
+    if _gemini_client is not None:
+        return _gemini_client
     if not GEMINI_API_KEY:
-        print("[gemini] No GEMINI_API_KEY set")
+        logger.warning("GEMINI_API_KEY not set")
         return None
-    return genai.Client(api_key=GEMINI_API_KEY)
+    _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+    return _gemini_client
 
-
-# GUIDE MAP HELPERS
 
 def load_guides_map(force_refresh: bool = False) -> Dict[str, Dict[str, str]]:
-    """
-    Load guides_map.json, preferring S3 if configured.
-    Uses an in-memory cache unless force_refresh=True.
-    """
     global _guides_cache
 
     if _guides_cache is not None and not force_refresh:
@@ -81,32 +82,26 @@ def load_guides_map(force_refresh: bool = False) -> Dict[str, Dict[str, str]]:
 
     if _s3_client and S3_GUIDES_BUCKET:
         try:
-            print(f"[gemini] Loading guides_map.json from S3: s3://{S3_GUIDES_BUCKET}/{S3_GUIDES_KEY}")
             resp = _s3_client.get_object(Bucket=S3_GUIDES_BUCKET, Key=S3_GUIDES_KEY)
-            data = resp["Body"].read()
-            _guides_cache = json.loads(data.decode("utf-8"))
+            _guides_cache = json.loads(resp["Body"].read().decode("utf-8"))
+            logger.info("Loaded guides_map from S3")
             return _guides_cache
-        except Exception as e:
-            print("[gemini] Error loading guides_map.json from S3:", repr(e))
+        except Exception:
+            logger.warning("Failed to load guides_map from S3, falling back to local")
 
     if GUIDES_MAP_PATH.exists():
         try:
-            print(f"[gemini] Loading guides_map.json from local file: {GUIDES_MAP_PATH}")
             _guides_cache = json.loads(GUIDES_MAP_PATH.read_text())
+            logger.info("Loaded guides_map from local file")
             return _guides_cache
-        except Exception as e:
-            print("[gemini] Error reading local guides_map.json:", repr(e))
+        except Exception:
+            logger.error("Failed to load local guides_map.json")
 
-    print("[gemini] No guides_map.json found in S3 or local file")
     _guides_cache = {}
     return _guides_cache
 
 
 def get_guides_for_hazard(hazard_label: str) -> List[str]:
-    """
-    Returns a list of guide KEYS (strings) for UI / guidesUsed.
-    No Files API here. This is cheap metadata only.
-    """
     guides_map = load_guides_map()
     guide_keys = HAZARD_GUIDE_MAP.get(hazard_label, []) or HAZARD_GUIDE_MAP["general_safety"]
 
@@ -115,34 +110,27 @@ def get_guides_for_hazard(hazard_label: str) -> List[str]:
         if key in guides_map:
             valid.append(key)
         else:
-            print(f"[gemini] guide key '{key}' not found in guides_map")
+            logger.debug("Guide key '%s' not found in guides_map", key)
     return valid
 
 
 def get_guide_file_uri(guide_key: str) -> Optional[tuple[str, str]]:
-    """
-    Returns (file_uri, mime_type) for a given guide_key
-    using the guides_map structure loaded from S3 (or local fallback).
-    """
     guides_map = load_guides_map()
     entry = guides_map.get(guide_key)
-    if not entry:
-        print(f"[gemini] No guides_map entry for '{guide_key}'")
+    if not entry or not entry.get("file_uri"):
         return None
-
-    file_uri = entry.get("file_uri")
-    mime_type = entry.get("mime_type", "application/pdf")
-
-    if not file_uri:
-        print(f"[gemini] guides_map entry for '{guide_key}' missing file_uri")
-        return None
-
-    return file_uri, mime_type
+    return entry["file_uri"], entry.get("mime_type", "application/pdf")
 
 
 def classify_hazard_with_gemini(user_text: str) -> str:
-    client = get_client()
+    global _last_provider
+    client = _get_client()
     if client is None:
+        or_result = classify_hazard_with_openrouter(user_text)
+        if or_result is not None:
+            _last_provider = "openrouter"
+            return or_result
+        _last_provider = "fallback"
         return "general_safety"
 
     system_prompt = (
@@ -154,47 +142,49 @@ def classify_hazard_with_gemini(user_text: str) -> str:
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=user_text,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt
-            ),
+            model=GEMINI_MODEL,
+            contents=_truncate(user_text),
+            config=types.GenerateContentConfig(system_instruction=system_prompt),
         )
-    except Exception as e:
-        print("[gemini] Error in classification:", repr(e))
+    except Exception:
+        logger.exception("Gemini classification failed")
+        or_result = classify_hazard_with_openrouter(user_text)
+        if or_result is not None:
+            _last_provider = "openrouter"
+            return or_result
+        _last_provider = "fallback"
         return "general_safety"
 
+    _last_provider = "gemini"
+
     raw = (response.text or "").strip().lower()
-    print("[gemini] classifier raw =", raw)
+    logger.debug("Gemini classifier raw = %s", raw)
 
     if raw in ALLOWED_HAZARDS:
         return raw
-
-    aliases = {
-        "power outage": "power_outage",
-        "snow": "snow_stuck",
-        "general": "general_safety",
-    }
-    return aliases.get(raw, "general_safety")
+    return HAZARD_ALIASES.get(raw, "general_safety")
 
 
-def generate_guidance_with_gemini(
-    user_text: str,
-    hazard_label: str,
-) -> str:
-    client = get_client()
+def generate_guidance_with_gemini(user_text: str, hazard_label: str) -> str:
+    global _last_provider
+    client = _get_client()
     if client is None:
+        or_text = generate_guidance_with_openrouter(user_text, hazard_label)
+        if or_text:
+            _last_provider = "openrouter"
+            return or_text
+        _last_provider = "fallback"
         return fallback_guidance(user_text, hazard_label)
 
     system_prompt = (
         "You are a safety assistant. "
-        "Provide 5–8 short, numbered, general safety steps. "
+        "Provide 5-8 short, numbered, general safety steps. "
         "No medical or legal advice. "
         "If danger is immediate, remind the user to call emergency services."
     )
 
     user_prompt = (
-        f"User description:\n\"{user_text}\"\n\n"
+        f"User description:\n\"{_truncate(user_text)}\"\n\n"
         f"Hazard: {hazard_label}\n\n"
         "Give clear, actionable steps for the next minutes and hours.\n"
         "Do NOT give medical or legal advice.\n"
@@ -202,30 +192,36 @@ def generate_guidance_with_gemini(
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model=GEMINI_MODEL,
             contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt
-            ),
+            config=types.GenerateContentConfig(system_instruction=system_prompt),
         )
         text = (response.text or "").strip()
-        if not text:
-            print("[gemini] Empty model text → fallback")
-            return fallback_guidance(user_text, hazard_label)
-        return text
-    except Exception as e:
-        print("[gemini] Error in generate_guidance_with_gemini:", repr(e))
-        return fallback_guidance(user_text, hazard_label)
+        if text:
+            _last_provider = "gemini"
+            return text
+        logger.warning("Gemini returned empty text")
+    except Exception:
+        logger.exception("Gemini guidance generation failed")
+
+    or_text = generate_guidance_with_openrouter(user_text, hazard_label)
+    if or_text:
+        _last_provider = "openrouter"
+        return or_text
+    _last_provider = "fallback"
+    return fallback_guidance(user_text, hazard_label)
 
 
-def deep_guidance_with_pdf(
-    user_text: str,
-    hazard_label: str,
-    guide_key: str,
-) -> str:
-    client = get_client()
+def deep_guidance_with_pdf(user_text: str, hazard_label: str, guide_key: str) -> str:
+    global _last_provider
+    client = _get_client()
     if client is None:
-        return "Gemini API key not configured."
+        or_text = deep_guidance_with_openrouter(user_text, hazard_label, guide_key)
+        if or_text:
+            _last_provider = "openrouter"
+            return or_text
+        _last_provider = "fallback"
+        return "AI service is currently unavailable. Please try again later."
 
     result = get_guide_file_uri(guide_key)
     if not result:
@@ -240,7 +236,7 @@ def deep_guidance_with_pdf(
     )
 
     user_prompt = (
-        f"User description:\n\"{user_text}\"\n\n"
+        f"User description:\n\"{_truncate(user_text)}\"\n\n"
         f"Hazard: {hazard_label}\n\n"
         f"Guide key: {guide_key}\n\n"
         "Using ONLY the attached guide, summarize the most relevant steps and tips."
@@ -248,35 +244,35 @@ def deep_guidance_with_pdf(
 
     parts = [
         types.Part(text=user_prompt),
-        types.Part(
-            file_data={
-                "file_uri": file_uri,
-                "mime_type": mime_type,
-            }
-        ),
+        types.Part(file_data={"file_uri": file_uri, "mime_type": mime_type}),
     ]
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model=GEMINI_MODEL,
             contents=parts,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt
-            ),
+            config=types.GenerateContentConfig(system_instruction=system_prompt),
         )
         text = (response.text or "").strip()
-        if not text:
-            return "Got an empty response from Gemini when using the PDF."
-        return text
-    except Exception as e:
-        print("[gemini] Error in deep_guidance_with_pdf:", repr(e))
-        return f"There was an error using Gemini Files API for this guide: {e}"
+        if text:
+            _last_provider = "gemini"
+            return text
+        logger.warning("Gemini returned empty text for deep guidance")
+    except Exception:
+        logger.exception("Gemini deep guidance failed")
+
+    or_text = deep_guidance_with_openrouter(user_text, hazard_label, guide_key)
+    if or_text:
+        _last_provider = "openrouter"
+        return or_text
+    _last_provider = "fallback"
+    return "AI service is currently unavailable. Please try again later."
 
 
 def fallback_guidance(user_text: str, hazard_label: str) -> str:
     readable = hazard_label.replace("_", " ")
     return (
-        "We couldn’t find a closely matching situation or specific guide for this, "
+        "We couldn't find a closely matching situation or specific guide for this, "
         "so here are general, non-medical safety steps you can consider "
         f"(interpreting this as '{readable}'):\n\n"
         "1. Make sure you and anyone with you are safe. If you ever feel in danger or this "

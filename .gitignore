@@ -1,6 +1,7 @@
 # =========================
 # Node (React Frontend)
 # =========================
+node_modules/
 frontend/node_modules/
 frontend/.env
 frontend/build/
@@ -41,3 +42,4 @@ Thumbs.db
 # =========================
 .env
 .env.local
+!.env.example

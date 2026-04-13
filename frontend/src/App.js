@@ -108,8 +108,11 @@ function App() {
 					<h1 className='app-header__title'>Emergency Safety Helper</h1>
 				</div>
 				<p className='app-header__subtitle'>
-					Describe what&apos;s happening and get calm, step-by-step, non-medical
+					Describe what's happening and get calm, step-by-step, non-medical
 					safety guidance.
+				</p>
+				<p className='app-header__notice'>
+					⚡ Backend runs on Render free tier — first request may take 30-60s if the server is waking up.
 				</p>
 			</header>
 
@@ -160,7 +163,7 @@ function App() {
 
 						<div className='help-form__actions'>
 							<button className='button button--primary' disabled={loading}>
-								{loading ? 'Analyzing...' : 'Get safety steps'}
+								{loading ? 'Analyzing (may take 30-60s on free tier)...' : 'Get safety steps'}
 							</button>
 							<button
 								type='button'
@@ -190,6 +193,11 @@ function App() {
 								<strong>
 									{result.hazardSource === 'rules' ? 'Rules' : 'AI'}
 								</strong>
+							</span>
+							<span className='meta-pill'>
+								AI: <strong>{
+									{gemini: 'Gemini', openrouter: 'OpenRouter', fallback: 'Built-in', rules: 'Rules'}[result.providerUsed] || result.providerUsed || '—'
+								}</strong>
 							</span>
 							<span className='meta-pill'>
 								Mode: <strong>{resultMode}</strong>

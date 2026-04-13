@@ -2,6 +2,9 @@ import os
 import json
 from typing import Any, Dict, List
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -10,6 +13,7 @@ from gemini_client import (
     generate_guidance_with_gemini,
     deep_guidance_with_pdf,
     get_guides_for_hazard as gemini_get_guides_for_hazard,
+    get_last_provider,
 )
 
 app = Flask(__name__)
@@ -231,6 +235,7 @@ def get_help() -> Any:
                 "(911 or your local emergency number) immediately or seek urgent medical help."
             ),
             "mode": "normal",
+            "providerUsed": "rules",
         })
 
     hazard_label = detect_hazard_by_rules(situation_text)
@@ -254,6 +259,7 @@ def get_help() -> Any:
         "canDeepDive": bool(guides_used_keys),
         "guidance": guidance_text,
         "mode": "normal",
+        "providerUsed": get_last_provider(),
     })
 
 
@@ -292,6 +298,7 @@ def get_help_deep() -> Any:
                 "(911 or your local emergency number) immediately or seek urgent medical help."
             ),
             "mode": "deep",
+            "providerUsed": "rules",
         })
 
     # Rule-based first
@@ -328,6 +335,7 @@ def get_help_deep() -> Any:
         "canDeepDive": bool(guides_used_keys),
         "guidance": guidance_text,
         "mode": "deep",
+        "providerUsed": get_last_provider(),
     })
 
 
@@ -359,6 +367,7 @@ def deep_guidance() -> Any:
         "hazard": hazard,
         "guideKey": guide_key,
         "deepGuidance": deep_answer,
+        "providerUsed": get_last_provider(),
     })
 
 
